@@ -60,9 +60,10 @@ elements[1].fields.YWUpzbhTSHsT9YHfa2yq
 
 elements[1].fields.YWUpzbhTSHsT9YHfa2yq.value.join(', ')
 
+
 relatedElements = elements[4].fields['71NveZCONyUmWH2PDebB'].related
 
-nameMapper(value, index, array) = value.name
+nameMapper(value, index) = value.name
 
 relatedElements[1].id
 

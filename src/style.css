@@ -82,6 +82,18 @@ h1 {
   }
 }
 
+
+
+.cm-content {
+  max-width: 95%;
+}
+
+
+.ͼ1 .cm-content {
+  white-space: unset;
+}
+
+
 .cm-mathjs-result-inner button.copy {
   display: none;
   background: var(--text-color);
