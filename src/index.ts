@@ -12,7 +12,13 @@ import {
   rectangularSelection,
   ViewUpdate
 } from '@codemirror/view'
-import { copyLineDown, defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import {
+  copyLineDown,
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab
+} from '@codemirror/commands'
 import { lintGutter, lintKeymap } from '@codemirror/lint'
 import {
   bracketMatching,
@@ -41,25 +47,66 @@ import {
 } from './widgets/mathjsResultsPlugin.js'
 import { debounce, isEqual, last } from 'lodash-es'
 
-const recalculateDelay = 500 // ms
+const recalculateDelay = 100 // ms
 
 const localStorageKey = 'mathjs-codemirror-expressions'
 
-const defaultExpressions = `1.2 * (2 + 4.5)
+const defaultExpressions = `
+view.name
 
-12.7 cm to inch
+category.name
 
-sin(45 deg) ^ 2
+elements[1].fields.YWUpzbhTSHsT9YHfa2yq
 
-9 / 3 + 2i
+elements[1].fields.YWUpzbhTSHsT9YHfa2yq.value.join(', ')
 
-det([-1, 2; 3, 1])
+relatedElements = elements[4].fields['71NveZCONyUmWH2PDebB'].related
 
-simplify('5x + 2x + 240/2.5')
+nameMapper(value, index, array) = value.name
+
+relatedElements[1].id
+
+size(relatedElements)
+
+val = map(relatedElements, nameMapper)
+
+print(val.join(', '), {})
+
+size(elements)
+
+elements[1].name
+
+elements[1].fields
+
+print('Hello, $name', {name: "Zach"})
 `
 
-function init() {
+const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOiI2SzZZbTlPRmp6Z2RFQzJKblJsMnhpcGVya0UyIiwiZW1haWwiOiJqYWNrQGxheWVyLnRlYW0iLCJpYXQiOjE3MjY4NDkzMzB9.HvY4_3JCJkQy18VLRIowDZdbpk9ZLvt4Ka_zWQbuQrg'
+const apiUrl =
+  'https://api-staging.layer.team/projects/MPutZNzBDrZ10VL5PnL9/elements?categoryId=uyL4EG8RNvExt66aRyOs&viewId=Fumot4P91cOm013baRWo'
+
+async function init() {
   const math = create(all)
+
+  // Uncomment the following lines to use to data.json file in the /public folder as the root "scope"
+  // fetch('./data.json')
+  //   .then((response) => response.json())
+  //   .then((data) => {
+  //     console.log(data)
+  //     scope = new Map(Object.entries(data))
+  //     recalculate()
+  //   })
+
+  // Uncomment the following lines to use the API request apove as the root "scope"
+  fetch(apiUrl, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log(data)
+      scope = new Map(Object.entries(data))
+      recalculate()
+    })
 
   let scope = new Map()
 
@@ -68,7 +115,7 @@ function init() {
       const prevLine = last(all)
       const pos = (prevLine ? prevLine.pos + 1 : 0) + text.length
       const line = { pos, index, text }
-      return [...all, line]
+      return [...all, line] as Line[]
     }, [])
   }
 
@@ -95,26 +142,26 @@ function init() {
           parsedLine = math.parse(line.text)
           canBeParsed = true
         } catch (error) {
-          parsedLine = math.parse("")
+          parsedLine = math.parse('')
           canBeParsed = false
         }
 
         const usedSymbols = new Set()
         if (canBeParsed) {
-          parsedLine.traverse(
-            node => {
-              // this only gets the symbols in the expression,
-              // doesn't differentiate if the symbol is the output of an assignment
-              // TODO: filter only the input symbols
-              if (node.isSymbolNode) {
-                usedSymbols.add(node.name)
-              }
+          parsedLine.traverse((node) => {
+            // this only gets the symbols in the expression,
+            // doesn't differentiate if the symbol is the output of an assignment
+            // TODO: filter only the input symbols
+            if (node.isSymbolNode) {
+              usedSymbols.add(node.name)
             }
-          )
+          })
         }
 
         if (
-          prevResult && canBeParsed && prevResult.canBeParsed &&
+          prevResult &&
+          canBeParsed &&
+          prevResult.canBeParsed &&
           // checks if the expressions are equally parsed
           parsedLine.equals(prevResult.parsedLine) &&
           prevResults.scopeAfter && // check if the filtered scope is equal to the previous results filtered scope
@@ -148,8 +195,8 @@ function init() {
 
   function tryEvaluate(line: Line, scope: Map<string, unknown>) {
     try {
-      console.log('evaluate', line)
-      console.log(scope)
+      console.debug('evaluate', line)
+      console.debug(scope)
       return {
         answer: line.text.trim() !== '' ? math.evaluate(line.text, scope) : undefined,
         error: undefined
@@ -166,9 +213,7 @@ function init() {
     const clone = new Map<string, unknown>()
 
     scope.forEach((value, key) => {
-      clone.set(key,
-        typeof value === 'function' ? value.bind({}) : math.clone(value)
-      )
+      clone.set(key, typeof value === 'function' ? value.bind({}) : math.clone(value))
     })
 
     return clone
@@ -182,7 +227,12 @@ function init() {
         ? localStorage[localStorageKey]
         : defaultExpressions,
     extensions: [
-      StreamLanguage.define(mathjsLang(() => math, () => scope)),
+      StreamLanguage.define(
+        mathjsLang(
+          () => math,
+          () => scope
+        )
+      ),
       keymap.of([indentWithTab]),
       lintGutter(),
       lineNumbers(),
@@ -215,7 +265,7 @@ function init() {
       }),
       EditorView.updateListener.of((update: ViewUpdate) => {
         if (update.docChanged) {
-          console.log('docChanged')
+          console.debug('docChanged')
           recalculateDebounced()
         }
       })

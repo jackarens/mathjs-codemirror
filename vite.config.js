@@ -1,3 +1,5 @@
+import { config } from "mathjs";
+
 export default {
   base: './',
   build: {
